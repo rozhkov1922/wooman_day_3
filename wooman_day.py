@@ -42,7 +42,6 @@ def load_data(base_dir: Path):
         dfs.append(df)
 
     df = pd.concat(dfs, ignore_index=True)
-
     df["%Female"] = df["%Female"].astype(str).str.replace(",", ".").astype(float)
     df["Areas"] = df["Areas"].str.split(";")
     df = df.explode("Areas")
@@ -56,7 +55,7 @@ def load_data(base_dir: Path):
 def wrap_label(label, width=25):
     return textwrap.fill(label, width=width)
 
-def apply_gradient(ax, start_color="#e6f2ff", end_color="#08306b"):  # Сделаем начальный цвет более темным
+def apply_gradient(ax, start_color="#a8cfff", end_color="#08306b"):
     ax.set_facecolor("none")
     gradient = np.linspace(0, 1, 256).reshape(1, -1)
     gradient = np.vstack((gradient, gradient))
@@ -80,69 +79,66 @@ def plot_boxplot_top_areas(df, year, top_n=10):
         grouped.append(group["%Female"].values)
         labels.append(wrap_label(area))
 
-    fig, ax = plt.subplots(figsize=(16, 8))
+    fig, ax = plt.subplots(figsize=(12, 5))  # уменьшенный размер
     apply_gradient(ax)
 
-    box_color = "#1a3f7a"  # Единый цвет для всех границ ящиков
+    box_color = "darkblue"
 
-    ax.boxplot(
+    # Основной boxplot с белыми границами
+    box = ax.boxplot(
         grouped,
         labels=labels,
         patch_artist=True,
-        boxprops=dict(facecolor="lightblue", color=box_color, linewidth=2),
-        whiskerprops=dict(color=box_color, linewidth=2),
-        capprops=dict(color=box_color, linewidth=2),
+        boxprops=dict(facecolor="lightblue", color="white", linewidth=2),
+        whiskerprops=dict(color="white", linewidth=2),
+        capprops=dict(color="white", linewidth=2),
         medianprops=dict(color="red", linewidth=2),
-        flierprops=dict(marker="o", markerfacecolor=box_color, markeredgecolor=box_color, markersize=4, alpha=0.7),
+        flierprops=dict(marker="o", markerfacecolor="white", markeredgecolor="white", markersize=4, alpha=1.0),
         manage_ticks=False
     )
 
-    # Белая обводка для ящиков и усиков
-    for patch in ax.artists:
+    # Белая граница вокруг ящиков
+    for patch in box['boxes']:
         patch.set_edgecolor("white")
-        patch.set_linewidth(1.5)
+        patch.set_linewidth(2)
+    for whisker in box['whiskers']:
+        whisker.set_color("white")
+        whisker.set_linewidth(2)
+    for cap in box['caps']:
+        cap.set_color("white")
+        cap.set_linewidth(2)
+    for flier in box['fliers']:
+        flier.set_markeredgecolor("white")
+        flier.set_markerfacecolor("white")
+        flier.set_alpha(1.0)
+    for median in box['medians']:
+        median.set_color("red")
+        median.set_linewidth(2)
 
-    ax.set_title(f"Распределение доли женщин-авторов (%Female)\nТоп-{top_n} Areas по медиане, {year}", color="white", fontsize=15)
+    ax.set_title(f"Распределение доли женщин-авторов (%Female)\nТоп-{top_n} Areas по медиане, {year}", color="white", fontsize=14)
     ax.set_xticklabels(labels, rotation=25, color="white", fontsize=10)
     ax.tick_params(axis="y", colors="white")
-    ax.set_ylabel("Доля женщин-авторов (%)", color="white")
     for spine in ax.spines.values():
-        spine.set_color("white")
+        spine.set_edgecolor("white")
+        spine.set_linewidth(2)
     plt.tight_layout()
 
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.pyplot(fig)
-    with col2:
-        st.markdown("""
-        **Пояснения к Areas:**  
-        - Ящики: 25%-75% доля женщин-авторов.  
-        - Красная линия: медиана.  
-        - Кружки: выбросы.  
-        - Areas отсортированы по медиане слева направо (слева – больше, справа – меньше).
-        
-        **Оси:**  
-        - **X-ось**: Areas (области исследований)  
-        - **Y-ось**: Доля женщин-авторов (%)
-        """)
+    st.pyplot(fig)
     plt.close(fig)
+
+    # Пояснения под графиком
+    st.markdown("**Пояснения по темам (Areas):**")
+    st.markdown(
+        "\n".join([f"- {i+1}. {area}" for i, area in enumerate(top_areas.index)])
+    )
 
 def plot_boxplot_by_quartile(df, year, area):
     df_area = df[(df["Year"] == year) & (df["Areas"] == area)]
-    
-    # Группируем по квартилям и вычисляем медианы
-    quartile_medians = df_area.groupby("SJR Best Quartile")["%Female"].median()
-    # Сортируем квартили по медиане в порядке убывания (от большей к меньшей)
-    quartile_medians_sorted = quartile_medians.sort_values(ascending=False)
-    
-    df_area["SJR Best Quartile"] = pd.Categorical(
-        df_area["SJR Best Quartile"], 
-        categories=quartile_medians_sorted.index, 
-        ordered=True
-    )
+    quartile_medians = df_area.groupby("SJR Best Quartile")["%Female"].median().sort_values(ascending=False)
+    df_area["SJR Best Quartile"] = pd.Categorical(df_area["SJR Best Quartile"], categories=quartile_medians.index, ordered=True)
 
     grouped, labels = [], []
-    for quartile, group in df_area.groupby("SJR Best Quartile", observed=True):
+    for quartile, group in df_area.groupby("SJR Best Quartile"):
         grouped.append(group["%Female"].values)
         labels.append(quartile)
 
@@ -150,51 +146,55 @@ def plot_boxplot_by_quartile(df, year, area):
         st.info("Нет данных для выбранного Area и года.")
         return
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(8, 4))  # уменьшенный размер
     apply_gradient(ax)
 
-    box_color = "#1a3f7a"  # Тот же цвет, что и в первом графике
-
-    ax.boxplot(
+    box = ax.boxplot(
         grouped,
         labels=labels,
         patch_artist=True,
-        boxprops=dict(facecolor="lightblue", color=box_color, linewidth=2),
-        whiskerprops=dict(color=box_color, linewidth=2),
-        capprops=dict(color=box_color, linewidth=2),
+        boxprops=dict(facecolor="lightblue", color="white", linewidth=2),
+        whiskerprops=dict(color="white", linewidth=2),
+        capprops=dict(color="white", linewidth=2),
         medianprops=dict(color="red", linewidth=2),
-        flierprops=dict(marker="o", markerfacecolor=box_color, markeredgecolor=box_color, markersize=4, alpha=0.7),
+        flierprops=dict(marker="o", markerfacecolor="white", markeredgecolor="white", markersize=4, alpha=1.0),
         manage_ticks=False
     )
 
-    for patch in ax.artists:
+    # Белая граница для всех элементов
+    for patch in box['boxes']:
         patch.set_edgecolor("white")
-        patch.set_linewidth(1.5)
+        patch.set_linewidth(2)
+    for whisker in box['whiskers']:
+        whisker.set_color("white")
+        whisker.set_linewidth(2)
+    for cap in box['caps']:
+        cap.set_color("white")
+        cap.set_linewidth(2)
+    for flier in box['fliers']:
+        flier.set_markeredgecolor("white")
+        flier.set_markerfacecolor("white")
+        flier.set_alpha(1.0)
+    for median in box['medians']:
+        median.set_color("red")
+        median.set_linewidth(2)
 
-    ax.set_title(f"%Female по квартилям\n{area}, {year}", color="white")
+    ax.set_title(f"%Female по квартилям\n{area}, {year}", color="white", fontsize=14)
     ax.set_xticklabels(labels, rotation=25, color="white", fontsize=10)
     ax.tick_params(axis="y", colors="white")
-    ax.set_ylabel("Доля женщин-авторов (%)", color="white")
     for spine in ax.spines.values():
-        spine.set_color("white")
+        spine.set_edgecolor("white")
+        spine.set_linewidth(2)
     plt.tight_layout()
 
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.pyplot(fig)
-    with col2:
-        st.markdown("""
-        **Пояснения по квартилям:**  
-        - Ящики: 25%-75% доля женщин-авторов.  
-        - Красная линия: медиана.  
-        - Кружки: выбросы.  
-        - Квартали отсортированы по медиане слева направо (слева – больше, справа – меньше).
-        
-        **Оси:**  
-        - **X-ось**: Квартили SJR  
-        - **Y-ось**: Доля женщин-авторов (%)
-        """)
+    st.pyplot(fig)
     plt.close(fig)
+
+    # Пояснения под графиком
+    st.markdown(f"**Пояснения по квартилям для области '{area}':**")
+    st.markdown(
+        "\n".join([f"- {i+1}. {quartile}" for i, quartile in enumerate(labels)])
+    )
 
 # -------------------------------------------------
 # Основное приложение
