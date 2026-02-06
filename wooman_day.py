@@ -166,7 +166,8 @@ def plot_boxplot_by_quartile(df, year, area):
 def main():
     st.title("Анализ доли женщин-авторов по областям исследований")
 
-    data_dir = Path("data")
+    BASE_DIR = Path(__file__).resolve().parent
+    data_dir = BASE_DIR
     df = load_data(data_dir)
 
     year = st.selectbox("Выберите год", sorted(df["Year"].unique()))
