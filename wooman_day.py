@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
-
-
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -22,16 +19,26 @@ st.set_page_config(
 # Загрузка данных
 # -------------------------------------------------
 @st.cache_data(show_spinner=True)
-def load_data(data_dir: Path):
+def load_data(base_dir: Path):
+
     files = {
-        2022: "scimagojr_2022.csv",
-        2023: "scimagojr_2023.csv",
-        2024: "scimagojr_2024.csv",
+        2022: "scimagojr 2022.csv",
+        2023: "scimagojr 2023.csv",
+        2024: "scimagojr 2024.csv",
     }
 
     dfs = []
+
     for year, filename in files.items():
-        df = pd.read_csv(data_dir / filename, sep=";")
+        path = base_dir / filename
+
+        if not path.exists():
+            st.error(f"Файл не найден: {filename}")
+            st.write("Файлы в директории приложения:")
+            st.write([p.name for p in base_dir.iterdir()])
+            st.stop()
+
+        df = pd.read_csv(path, sep=";")
         df["Year"] = year
         dfs.append(df)
 
@@ -166,9 +173,8 @@ def plot_boxplot_by_quartile(df, year, area):
 def main():
     st.title("Анализ доли женщин-авторов по областям исследований")
 
-    BASE_DIR = Path(__file__).resolve().parent
-    data_dir = BASE_DIR
-    df = load_data(data_dir)
+    base_dir = Path(__file__).resolve().parent
+    df = load_data(base_dir)
 
     year = st.selectbox("Выберите год", sorted(df["Year"].unique()))
 
