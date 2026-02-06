@@ -56,6 +56,7 @@ def wrap_label(label, width=25):
     return textwrap.fill(label, width=width)
 
 def apply_gradient(ax, start_color="#a8cfff", end_color="#08306b"):
+    """Градиентный фон слева направо"""
     ax.set_facecolor("none")
     gradient = np.linspace(0, 1, 256).reshape(1, -1)
     gradient = np.vstack((gradient, gradient))
@@ -74,84 +75,16 @@ def plot_boxplot_top_areas(df, year, top_n=10):
     df_top = df_year[df_year["Areas"].isin(top_areas.index)]
     df_top["Areas"] = pd.Categorical(df_top["Areas"], categories=top_areas.index, ordered=True)
 
-    grouped, labels = [], []
-    for area, group in df_top.groupby("Areas"):
-        grouped.append(group["%Female"].values)
-        labels.append(wrap_label(area))
+    grouped = [group["%Female"].values for _, group in df_top.groupby("Areas")]
+    labels = list(top_areas.index)
 
-    fig, ax = plt.subplots(figsize=(12, 5))  # уменьшенный размер
+    fig, ax = plt.subplots(figsize=(12, 5))
     apply_gradient(ax)
 
     box_color = "darkblue"
 
-    # Основной boxplot с белыми границами
     box = ax.boxplot(
         grouped,
-        labels=labels,
-        patch_artist=True,
-        boxprops=dict(facecolor="lightblue", color="white", linewidth=2),
-        whiskerprops=dict(color="white", linewidth=2),
-        capprops=dict(color="white", linewidth=2),
-        medianprops=dict(color="red", linewidth=2),
-        flierprops=dict(marker="o", markerfacecolor="white", markeredgecolor="white", markersize=4, alpha=1.0),
-        manage_ticks=False
-    )
-
-    # Белая граница вокруг ящиков
-    for patch in box['boxes']:
-        patch.set_edgecolor("white")
-        patch.set_linewidth(2)
-    for whisker in box['whiskers']:
-        whisker.set_color("white")
-        whisker.set_linewidth(2)
-    for cap in box['caps']:
-        cap.set_color("white")
-        cap.set_linewidth(2)
-    for flier in box['fliers']:
-        flier.set_markeredgecolor("white")
-        flier.set_markerfacecolor("white")
-        flier.set_alpha(1.0)
-    for median in box['medians']:
-        median.set_color("red")
-        median.set_linewidth(2)
-
-    ax.set_title(f"Распределение доли женщин-авторов (%Female)\nТоп-{top_n} Areas по медиане, {year}", color="white", fontsize=14)
-    ax.set_xticklabels(labels, rotation=25, color="white", fontsize=10)
-    ax.tick_params(axis="y", colors="white")
-    for spine in ax.spines.values():
-        spine.set_edgecolor("white")
-        spine.set_linewidth(2)
-    plt.tight_layout()
-
-    st.pyplot(fig)
-    plt.close(fig)
-
-    # Пояснения под графиком
-    st.markdown("**Пояснения по темам (Areas):**")
-    st.markdown(
-        "\n".join([f"- {i+1}. {area}" for i, area in enumerate(top_areas.index)])
-    )
-
-def plot_boxplot_by_quartile(df, year, area):
-    df_area = df[(df["Year"] == year) & (df["Areas"] == area)]
-    quartile_medians = df_area.groupby("SJR Best Quartile")["%Female"].median().sort_values(ascending=False)
-    df_area["SJR Best Quartile"] = pd.Categorical(df_area["SJR Best Quartile"], categories=quartile_medians.index, ordered=True)
-
-    grouped, labels = [], []
-    for quartile, group in df_area.groupby("SJR Best Quartile"):
-        grouped.append(group["%Female"].values)
-        labels.append(quartile)
-
-    if not grouped:
-        st.info("Нет данных для выбранного Area и года.")
-        return
-
-    fig, ax = plt.subplots(figsize=(8, 4))  # уменьшенный размер
-    apply_gradient(ax)
-
-    box = ax.boxplot(
-        grouped,
-        labels=labels,
         patch_artist=True,
         boxprops=dict(facecolor="lightblue", color="white", linewidth=2),
         whiskerprops=dict(color="white", linewidth=2),
@@ -174,27 +107,100 @@ def plot_boxplot_by_quartile(df, year, area):
     for flier in box['fliers']:
         flier.set_markeredgecolor("white")
         flier.set_markerfacecolor("white")
-        flier.set_alpha(1.0)
+    for median in box['medians']:
+        median.set_color("red")
+        median.set_linewidth(2)
+
+    ax.set_title(f"Распределение доли женщин-авторов (%Female)\nТоп-{top_n} Areas по медиане, {year}", color="white", fontsize=14)
+    ax.set_xticks(range(1, len(labels)+1))
+    ax.set_xticklabels(['']*len(labels))  # убираем стандартные подписи
+
+    # Пояснения прямо под ящиками
+    y_min = ax.get_ylim()[0] - 5
+    for i, label in enumerate(labels):
+        ax.text(i+1, y_min, label, ha='center', va='top', rotation=25, color='white', fontsize=10)
+
+    ax.tick_params(axis="y", colors="white")
+    for spine in ax.spines.values():
+        spine.set_edgecolor("white")
+        spine.set_linewidth(2)
+
+    plt.tight_layout()
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.pyplot(fig)
+    with col2:
+        st.markdown("**Дополнительно справа:**")
+        st.markdown("\n".join([f"- {i+1}. {area}" for i, area in enumerate(labels)]))
+    plt.close(fig)
+
+def plot_boxplot_by_quartile(df, year, area):
+    df_area = df[(df["Year"] == year) & (df["Areas"] == area)]
+    quartile_medians = df_area.groupby("SJR Best Quartile")["%Female"].median().sort_values(ascending=False)
+    df_area["SJR Best Quartile"] = pd.Categorical(df_area["SJR Best Quartile"], categories=quartile_medians.index, ordered=True)
+
+    grouped = [group["%Female"].values for _, group in df_area.groupby("SJR Best Quartile")]
+    labels = list(quartile_medians.index)
+
+    if not grouped:
+        st.info("Нет данных для выбранного Area и года.")
+        return
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    apply_gradient(ax)
+
+    box = ax.boxplot(
+        grouped,
+        patch_artist=True,
+        boxprops=dict(facecolor="lightblue", color="white", linewidth=2),
+        whiskerprops=dict(color="white", linewidth=2),
+        capprops=dict(color="white", linewidth=2),
+        medianprops=dict(color="red", linewidth=2),
+        flierprops=dict(marker="o", markerfacecolor="white", markeredgecolor="white", markersize=4, alpha=1.0),
+        manage_ticks=False
+    )
+
+    # Белая граница для всех элементов
+    for patch in box['boxes']:
+        patch.set_edgecolor("white")
+        patch.set_linewidth(2)
+    for whisker in box['whiskers']:
+        whisker.set_color("white")
+        whisker.set_linewidth(2)
+    for cap in box['caps']:
+        cap.set_color("white")
+        cap.set_linewidth(2)
+    for flier in box['fliers']:
+        flier.set_markeredgecolor("white")
+        flier.set_markerfacecolor("white")
     for median in box['medians']:
         median.set_color("red")
         median.set_linewidth(2)
 
     ax.set_title(f"%Female по квартилям\n{area}, {year}", color="white", fontsize=14)
-    ax.set_xticklabels(labels, rotation=25, color="white", fontsize=10)
+    ax.set_xticks(range(1, len(labels)+1))
+    ax.set_xticklabels(['']*len(labels))  # убираем стандартные подписи
+
+    # Пояснения прямо под ящиками
+    y_min = ax.get_ylim()[0] - 5
+    for i, label in enumerate(labels):
+        ax.text(i+1, y_min, label, ha='center', va='top', rotation=25, color='white', fontsize=10)
+
     ax.tick_params(axis="y", colors="white")
     for spine in ax.spines.values():
         spine.set_edgecolor("white")
         spine.set_linewidth(2)
+
     plt.tight_layout()
 
-    st.pyplot(fig)
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.pyplot(fig)
+    with col2:
+        st.markdown(f"**Дополнительно справа:**")
+        st.markdown("\n".join([f"- {i+1}. {quartile}" for i, quartile in enumerate(labels)]))
     plt.close(fig)
-
-    # Пояснения под графиком
-    st.markdown(f"**Пояснения по квартилям для области '{area}':**")
-    st.markdown(
-        "\n".join([f"- {i+1}. {quartile}" for i, quartile in enumerate(labels)])
-    )
 
 # -------------------------------------------------
 # Основное приложение
