@@ -56,7 +56,7 @@ def load_data(base_dir: Path):
 def wrap_label(label, width=25):
     return textwrap.fill(label, width=width)
 
-def apply_gradient(ax, start_color="#a8cfff", end_color="#08306b"):
+def apply_gradient(ax, start_color="#e6f2ff", end_color="#08306b"):  # Сделаем начальный цвет более темным
     ax.set_facecolor("none")
     gradient = np.linspace(0, 1, 256).reshape(1, -1)
     gradient = np.vstack((gradient, gradient))
@@ -83,7 +83,7 @@ def plot_boxplot_top_areas(df, year, top_n=10):
     fig, ax = plt.subplots(figsize=(16, 8))
     apply_gradient(ax)
 
-    box_color = "darkblue"
+    box_color = "#1a3f7a"  # Единый цвет для всех границ ящиков
 
     ax.boxplot(
         grouped,
@@ -105,6 +105,7 @@ def plot_boxplot_top_areas(df, year, top_n=10):
     ax.set_title(f"Распределение доли женщин-авторов (%Female)\nТоп-{top_n} Areas по медиане, {year}", color="white", fontsize=15)
     ax.set_xticklabels(labels, rotation=25, color="white", fontsize=10)
     ax.tick_params(axis="y", colors="white")
+    ax.set_ylabel("Доля женщин-авторов (%)", color="white")
     for spine in ax.spines.values():
         spine.set_color("white")
     plt.tight_layout()
@@ -119,16 +120,29 @@ def plot_boxplot_top_areas(df, year, top_n=10):
         - Красная линия: медиана.  
         - Кружки: выбросы.  
         - Areas отсортированы по медиане слева направо (слева – больше, справа – меньше).
+        
+        **Оси:**  
+        - **X-ось**: Areas (области исследований)  
+        - **Y-ось**: Доля женщин-авторов (%)
         """)
     plt.close(fig)
 
 def plot_boxplot_by_quartile(df, year, area):
     df_area = df[(df["Year"] == year) & (df["Areas"] == area)]
-    quartile_medians = df_area.groupby("SJR Best Quartile")["%Female"].median().sort_values(ascending=False)
-    df_area["SJR Best Quartile"] = pd.Categorical(df_area["SJR Best Quartile"], categories=quartile_medians.index, ordered=True)
+    
+    # Группируем по квартилям и вычисляем медианы
+    quartile_medians = df_area.groupby("SJR Best Quartile")["%Female"].median()
+    # Сортируем квартили по медиане в порядке убывания (от большей к меньшей)
+    quartile_medians_sorted = quartile_medians.sort_values(ascending=False)
+    
+    df_area["SJR Best Quartile"] = pd.Categorical(
+        df_area["SJR Best Quartile"], 
+        categories=quartile_medians_sorted.index, 
+        ordered=True
+    )
 
     grouped, labels = [], []
-    for quartile, group in df_area.groupby("SJR Best Quartile"):
+    for quartile, group in df_area.groupby("SJR Best Quartile", observed=True):
         grouped.append(group["%Female"].values)
         labels.append(quartile)
 
@@ -139,7 +153,7 @@ def plot_boxplot_by_quartile(df, year, area):
     fig, ax = plt.subplots(figsize=(10, 6))
     apply_gradient(ax)
 
-    box_color = "darkblue"
+    box_color = "#1a3f7a"  # Тот же цвет, что и в первом графике
 
     ax.boxplot(
         grouped,
@@ -160,6 +174,7 @@ def plot_boxplot_by_quartile(df, year, area):
     ax.set_title(f"%Female по квартилям\n{area}, {year}", color="white")
     ax.set_xticklabels(labels, rotation=25, color="white", fontsize=10)
     ax.tick_params(axis="y", colors="white")
+    ax.set_ylabel("Доля женщин-авторов (%)", color="white")
     for spine in ax.spines.values():
         spine.set_color("white")
     plt.tight_layout()
@@ -174,6 +189,10 @@ def plot_boxplot_by_quartile(df, year, area):
         - Красная линия: медиана.  
         - Кружки: выбросы.  
         - Квартали отсортированы по медиане слева направо (слева – больше, справа – меньше).
+        
+        **Оси:**  
+        - **X-ось**: Квартили SJR  
+        - **Y-ось**: Доля женщин-авторов (%)
         """)
     plt.close(fig)
 
