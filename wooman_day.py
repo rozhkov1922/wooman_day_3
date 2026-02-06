@@ -79,10 +79,11 @@ def plot_boxplot_top_areas(df, year, top_n=10):
     ax.set_xticks(range(1, len(labels)+1))
     ax.set_xticklabels(['']*len(labels))  # подписи будем через текст
 
-    # Пояснения под ящиками
+    # Пояснения под ящиками с переносом строк
     y_min = ax.get_ylim()[0] - 1
     for i, label in enumerate(labels):
-        ax.text(i+1, y_min, label, ha='center', va='top', rotation=25, fontsize=10)
+        wrapped_label = textwrap.fill(label, width=20)  # перенос после 20 символов
+        ax.text(i+1, y_min, wrapped_label, ha='center', va='top', rotation=25, fontsize=10)
 
     ax.set_title(f"Распределение доли женщин-авторов (%Female)\nТоп-{top_n} Areas, {year}", fontsize=14)
     ax.tick_params(axis="y", colors="black")
@@ -92,18 +93,19 @@ def plot_boxplot_top_areas(df, year, top_n=10):
 
     plt.tight_layout()
 
-    # Разделяем экран: график слева, пояснение справа
+    # График слева, пояснение справа
     col1, col2 = st.columns([3, 1])
     with col1:
         st.pyplot(fig)
     with col2:
         st.markdown("**Описание графика:**")
-        st.markdown(
+        st.markdown(textwrap.fill(
             f"Этот график показывает распределение доли женщин-авторов (%Female) "
             f"по топ-{top_n} научным областям (Areas) за {year}. "
             "Каждый ящик — это квартильное распределение, красная линия — медиана, "
-            "кружки — выбросы."
-        )
+            "кружки — выбросы.",
+            width=40
+        ))
     plt.close(fig)
 
 # -------------------------------------------------
@@ -139,10 +141,11 @@ def plot_boxplot_by_quartile(df, year, area):
     ax.set_xticks(range(1, len(labels)+1))
     ax.set_xticklabels(['']*len(labels))
 
-    # Пояснения под ящиками
+    # Пояснения под ящиками с переносом строк
     y_min = ax.get_ylim()[0] - 1
     for i, label in enumerate(labels):
-        ax.text(i+1, y_min, label, ha='center', va='top', rotation=25, fontsize=10)
+        wrapped_label = textwrap.fill(label, width=20)
+        ax.text(i+1, y_min, wrapped_label, ha='center', va='top', rotation=25, fontsize=10)
 
     ax.set_title(f"%Female по квартилям\n{area}, {year}", fontsize=14)
     ax.tick_params(axis="y", colors="black")
@@ -157,11 +160,12 @@ def plot_boxplot_by_quartile(df, year, area):
         st.pyplot(fig)
     with col2:
         st.markdown("**Описание графика:**")
-        st.markdown(
+        st.markdown(textwrap.fill(
             f"Этот график показывает распределение доли женщин-авторов (%Female) "
             f"по квартилям журналов (Q1-Q4) для области {area} за {year}. "
-            "Красная линия — медиана, кружки — выбросы."
-        )
+            "Красная линия — медиана, кружки — выбросы.",
+            width=40
+        ))
     plt.close(fig)
 
 # -------------------------------------------------
