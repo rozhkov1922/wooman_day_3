@@ -62,52 +62,48 @@ def plot_boxplot_top_areas(df, year, top_n=10):
     grouped = [group["%Female"].values for _, group in df_top.groupby("Areas")]
     labels = list(top_areas.index)
 
-    fig, ax = plt.subplots(figsize=(12, 5))
+    fig, ax = plt.subplots(figsize=(10, 5))
 
     box = ax.boxplot(
         grouped,
         patch_artist=True,
-        boxprops=dict(facecolor="lightblue", color="white", linewidth=2),
-        whiskerprops=dict(color="white", linewidth=2),
-        capprops=dict(color="white", linewidth=2),
+        showfliers=True,  # показываем все выбросы
+        boxprops=dict(facecolor="lightblue", color="black", linewidth=1.5),
+        whiskerprops=dict(color="black", linewidth=1.5),
+        capprops=dict(color="black", linewidth=1.5),
         medianprops=dict(color="red", linewidth=2),
-        flierprops=dict(marker="o", markerfacecolor="white", markeredgecolor="white", markersize=4, alpha=1.0),
+        flierprops=dict(marker="o", markerfacecolor="white", markeredgecolor="black", markersize=5, alpha=1.0),
         manage_ticks=False
     )
 
-    # Белые границы всех элементов
-    for patch in box['boxes']:
-        patch.set_edgecolor("white")
-        patch.set_linewidth(2)
-    for whisker in box['whiskers']:
-        whisker.set_color("white")
-        whisker.set_linewidth(2)
-    for cap in box['caps']:
-        cap.set_color("white")
-        cap.set_linewidth(2)
-    for flier in box['fliers']:
-        flier.set_markeredgecolor("white")
-        flier.set_markerfacecolor("white")
-    for median in box['medians']:
-        median.set_color("red")
-        median.set_linewidth(2)
-
-    ax.set_title(f"Распределение доли женщин-авторов (%Female)\nТоп-{top_n} Areas по медиане, {year}", fontsize=14)
     ax.set_xticks(range(1, len(labels)+1))
-    ax.set_xticklabels(['']*len(labels))  # убираем стандартные подписи
+    ax.set_xticklabels(['']*len(labels))  # подписи будем через текст
 
-    # Пояснения прямо под ящиками
+    # Пояснения под ящиками
     y_min = ax.get_ylim()[0] - 1
     for i, label in enumerate(labels):
         ax.text(i+1, y_min, label, ha='center', va='top', rotation=25, fontsize=10)
 
+    ax.set_title(f"Распределение доли женщин-авторов (%Female)\nТоп-{top_n} Areas, {year}", fontsize=14)
     ax.tick_params(axis="y", colors="black")
     for spine in ax.spines.values():
         spine.set_edgecolor("black")
-        spine.set_linewidth(2)
+        spine.set_linewidth(1.5)
 
     plt.tight_layout()
-    st.pyplot(fig)
+
+    # Разделяем экран: график слева, пояснение справа
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.pyplot(fig)
+    with col2:
+        st.markdown("**Описание графика:**")
+        st.markdown(
+            f"Этот график показывает распределение доли женщин-авторов (%Female) "
+            f"по топ-{top_n} научным областям (Areas) за {year}. "
+            "Каждый ящик — это квартильное распределение, красная линия — медиана, "
+            "кружки — выбросы."
+        )
     plt.close(fig)
 
 # -------------------------------------------------
@@ -115,7 +111,6 @@ def plot_boxplot_top_areas(df, year, top_n=10):
 # -------------------------------------------------
 def plot_boxplot_by_quartile(df, year, area):
     df_area = df[(df["Year"] == year) & (df["Areas"] == area)]
-    # Оставляем только нужные квартали
     df_area = df_area[df_area["SJR Best Quartile"].isin(["Q1", "Q2", "Q3", "Q4"])]
     quartile_medians = df_area.groupby("SJR Best Quartile")["%Female"].median().sort_values(ascending=False)
     df_area["SJR Best Quartile"] = pd.Categorical(df_area["SJR Best Quartile"], categories=quartile_medians.index, ordered=True)
@@ -132,47 +127,41 @@ def plot_boxplot_by_quartile(df, year, area):
     box = ax.boxplot(
         grouped,
         patch_artist=True,
-        boxprops=dict(facecolor="lightblue", color="white", linewidth=2),
-        whiskerprops=dict(color="white", linewidth=2),
-        capprops=dict(color="white", linewidth=2),
+        showfliers=True,
+        boxprops=dict(facecolor="lightblue", color="black", linewidth=1.5),
+        whiskerprops=dict(color="black", linewidth=1.5),
+        capprops=dict(color="black", linewidth=1.5),
         medianprops=dict(color="red", linewidth=2),
-        flierprops=dict(marker="o", markerfacecolor="white", markeredgecolor="white", markersize=4, alpha=1.0),
+        flierprops=dict(marker="o", markerfacecolor="white", markeredgecolor="black", markersize=5, alpha=1.0),
         manage_ticks=False
     )
 
-    # Белые границы всех элементов
-    for patch in box['boxes']:
-        patch.set_edgecolor("white")
-        patch.set_linewidth(2)
-    for whisker in box['whiskers']:
-        whisker.set_color("white")
-        whisker.set_linewidth(2)
-    for cap in box['caps']:
-        cap.set_color("white")
-        cap.set_linewidth(2)
-    for flier in box['fliers']:
-        flier.set_markeredgecolor("white")
-        flier.set_markerfacecolor("white")
-    for median in box['medians']:
-        median.set_color("red")
-        median.set_linewidth(2)
-
-    ax.set_title(f"%Female по квартилям\n{area}, {year}", fontsize=14)
     ax.set_xticks(range(1, len(labels)+1))
-    ax.set_xticklabels(['']*len(labels))  # убираем стандартные подписи
+    ax.set_xticklabels(['']*len(labels))
 
-    # Пояснения прямо под ящиками
+    # Пояснения под ящиками
     y_min = ax.get_ylim()[0] - 1
     for i, label in enumerate(labels):
         ax.text(i+1, y_min, label, ha='center', va='top', rotation=25, fontsize=10)
 
+    ax.set_title(f"%Female по квартилям\n{area}, {year}", fontsize=14)
     ax.tick_params(axis="y", colors="black")
     for spine in ax.spines.values():
         spine.set_edgecolor("black")
-        spine.set_linewidth(2)
+        spine.set_linewidth(1.5)
 
     plt.tight_layout()
-    st.pyplot(fig)
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.pyplot(fig)
+    with col2:
+        st.markdown("**Описание графика:**")
+        st.markdown(
+            f"Этот график показывает распределение доли женщин-авторов (%Female) "
+            f"по квартилям журналов (Q1-Q4) для области {area} за {year}. "
+            "Красная линия — медиана, кружки — выбросы."
+        )
     plt.close(fig)
 
 # -------------------------------------------------
