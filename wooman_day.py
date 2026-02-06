@@ -67,18 +67,15 @@ def load_data(base_dir: Path):
 def wrap_label(label, width=25):
     return textwrap.fill(label, width=width)
 
-def apply_gradient(ax, cmap_name="Blues"):
+def apply_gradient(ax, start_color="#a8cfff", end_color="#08306b"):
     """Применяет горизонтальный градиент на фон осей matplotlib"""
-    from matplotlib.colors import LinearSegmentedColormap
-
     ax.set_facecolor("none")
-    fig = ax.figure
     gradient = np.linspace(0, 1, 256).reshape(1, -1)
     gradient = np.vstack((gradient, gradient))
     ax.imshow(
         gradient,
         aspect='auto',
-        cmap=plt.get_cmap(cmap_name),
+        cmap=mpl.colors.LinearSegmentedColormap.from_list("custom_blue", [start_color, end_color]),
         extent=[0, 1, 0, 1],
         transform=ax.transAxes,
         zorder=-1
@@ -91,64 +88,68 @@ def plot_boxplot_top_areas(df, year, top_n=10):
         .median()
         .sort_values(ascending=False)
         .head(top_n)
-        .index
     )
-    df_top = df_year[df_year["Areas"].isin(top_areas)]
+    # Сортировка по медиане
+    df_top = df_year[df_year["Areas"].isin(top_areas.index)]
+    df_top["Areas"] = pd.Categorical(df_top["Areas"], categories=top_areas.index, ordered=True)
 
     grouped, labels = [], []
     for area, group in df_top.groupby("Areas"):
         grouped.append(group["%Female"].values)
         labels.append(wrap_label(area))
 
-    # Разделение на колонки для графика и пояснения
+    fig, ax = plt.subplots(figsize=(16, 8))
+    apply_gradient(ax)
+
+    box_color = "darkblue"
+
+    ax.boxplot(
+        grouped,
+        labels=labels,
+        patch_artist=True,
+        boxprops=dict(facecolor="lightblue", color=box_color),
+        whiskerprops=dict(color=box_color),
+        capprops=dict(color=box_color),
+        medianprops=dict(color="red"),
+        flierprops=dict(
+            marker="o",
+            markerfacecolor=box_color,
+            markeredgecolor=box_color,
+            markersize=4,
+            alpha=0.7,
+        ),
+    )
+
+    ax.set_title(
+        f"Распределение доли женщин-авторов (%Female)\n"
+        f"Топ-{top_n} Areas по медиане, {year}",
+        color="white",
+        fontsize=15,
+    )
+    ax.tick_params(axis="x", colors="white", rotation=22)
+    ax.tick_params(axis="y", colors="white")
+    for spine in ax.spines.values():
+        spine.set_color("white")
+    plt.tight_layout()
+
     col1, col2 = st.columns([3, 1])
     with col1:
-        fig, ax = plt.subplots(figsize=(16, 8))
-        apply_gradient(ax)
-
-        ax.boxplot(
-            grouped,
-            labels=labels,
-            patch_artist=True,
-            boxprops=dict(facecolor="white", color="white"),
-            whiskerprops=dict(color="white"),
-            capprops=dict(color="white"),
-            medianprops=dict(color="red"),
-            flierprops=dict(
-                marker="o",
-                markerfacecolor="white",
-                markeredgecolor="white",
-                markersize=4,
-                alpha=0.8,
-            ),
-        )
-
-        ax.set_title(
-            f"Распределение доли женщин-авторов (%Female)\n"
-            f"Топ-{top_n} Areas по медиане, {year}",
-            color="white",
-            fontsize=15,
-        )
-        ax.tick_params(axis="x", colors="white", rotation=22)
-        ax.tick_params(axis="y", colors="white")
-        for spine in ax.spines.values():
-            spine.set_color("white")
-        plt.tight_layout()
         st.pyplot(fig)
-        plt.close(fig)
-
     with col2:
         st.markdown("""
-        **Пояснения:**
-        - Ящики показывают диапазон с 25-го по 75-й процентиль (%Female).  
+        **Пояснения к Areas:**
+        - Ящики показывают диапазон 25%-75% (%Female).  
         - Красная линия – медиана.  
         - Кружки – выбросы.  
-        - Топ Areas выбраны по медианной доле женщин-авторов.  
-        - Градиентный фон показывает визуально распределение графика.
+        - Areas отсортированы по медианной доле женщин (слева – больше, справа – меньше).
         """)
+    plt.close(fig)
 
 def plot_boxplot_by_quartile(df, year, area):
     df_area = df[(df["Year"] == year) & (df["Areas"] == area)]
+    # Сортировка квартилей по медиане
+    quartile_medians = df_area.groupby("SJR Best Quartile")["%Female"].median().sort_values(ascending=False)
+    df_area["SJR Best Quartile"] = pd.Categorical(df_area["SJR Best Quartile"], categories=quartile_medians.index, ordered=True)
 
     grouped, labels = [], []
     for quartile, group in df_area.groupby("SJR Best Quartile"):
@@ -159,46 +160,46 @@ def plot_boxplot_by_quartile(df, year, area):
         st.info("Нет данных для выбранного Area и года.")
         return
 
+    fig, ax = plt.subplots(figsize=(10, 6))
+    apply_gradient(ax)
+
+    box_color = "darkblue"
+
+    ax.boxplot(
+        grouped,
+        labels=labels,
+        patch_artist=True,
+        boxprops=dict(facecolor="lightblue", color=box_color),
+        whiskerprops=dict(color=box_color),
+        capprops=dict(color=box_color),
+        medianprops=dict(color="red"),
+        flierprops=dict(
+            marker="o",
+            markerfacecolor=box_color,
+            markeredgecolor=box_color,
+            markersize=4,
+            alpha=0.7,
+        ),
+    )
+
+    ax.set_title(f"%Female по квартилям\n{area}, {year}", color="white")
+    ax.tick_params(colors="white")
+    for spine in ax.spines.values():
+        spine.set_color("white")
+    plt.tight_layout()
+
     col1, col2 = st.columns([3, 1])
     with col1:
-        fig, ax = plt.subplots(figsize=(10, 6))
-        apply_gradient(ax)
-
-        # Только ящички с квартилями
-        ax.boxplot(
-            grouped,
-            labels=labels,
-            patch_artist=True,
-            boxprops=dict(facecolor="lightblue", color="blue"),
-            whiskerprops=dict(color="blue"),
-            capprops=dict(color="blue"),
-            medianprops=dict(color="red"),
-            flierprops=dict(
-                marker="o",
-                markerfacecolor="blue",
-                markeredgecolor="blue",
-                markersize=4,
-                alpha=0.7,
-            ),
-        )
-
-        ax.set_title(f"%Female по квартилям\n{area}, {year}", color="white")
-        ax.set_facecolor("none")
-        ax.tick_params(colors="white")
-        for spine in ax.spines.values():
-            spine.set_color("white")
-        plt.tight_layout()
         st.pyplot(fig)
-        plt.close(fig)
-
     with col2:
         st.markdown("""
         **Пояснения по квартилям:**
         - Ящики показывают диапазон 25%-75% доли женщин-авторов.  
         - Красная линия – медиана.  
         - Кружки – выбросы.  
-        - Позволяет сравнить качество журналов по квартилям для выбранной области.
+        - Квартали отсортированы по медиане слева направо (слева – больше, справа – меньше).
         """)
+    plt.close(fig)
 
 # -------------------------------------------------
 # Основное приложение
