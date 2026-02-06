@@ -4,8 +4,6 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib as mpl
-import numpy as np
 import textwrap
 from pathlib import Path
 
@@ -49,26 +47,12 @@ def load_data(base_dir: Path):
     df = df.dropna(subset=["%Female", "Areas", "Year"])
     return df
 
-# -------------------------------------------------
-# Вспомогательные функции
-# -------------------------------------------------
 def wrap_label(label, width=25):
     return textwrap.fill(label, width=width)
 
-def apply_gradient(ax, start_color="#a8cfff", end_color="#08306b"):
-    """Градиентный фон слева направо"""
-    ax.set_facecolor("none")
-    gradient = np.linspace(0, 1, 256).reshape(1, -1)
-    gradient = np.vstack((gradient, gradient))
-    ax.imshow(
-        gradient,
-        aspect='auto',
-        cmap=mpl.colors.LinearSegmentedColormap.from_list("custom_blue", [start_color, end_color]),
-        extent=[0, 1, 0, 1],
-        transform=ax.transAxes,
-        zorder=-1
-    )
-
+# -------------------------------------------------
+# Boxplot по топ Areas
+# -------------------------------------------------
 def plot_boxplot_top_areas(df, year, top_n=10):
     df_year = df[df["Year"] == year]
     top_areas = df_year.groupby("Areas")["%Female"].median().sort_values(ascending=False).head(top_n)
@@ -79,9 +63,6 @@ def plot_boxplot_top_areas(df, year, top_n=10):
     labels = list(top_areas.index)
 
     fig, ax = plt.subplots(figsize=(12, 5))
-    apply_gradient(ax)
-
-    box_color = "darkblue"
 
     box = ax.boxplot(
         grouped,
@@ -94,7 +75,7 @@ def plot_boxplot_top_areas(df, year, top_n=10):
         manage_ticks=False
     )
 
-    # Белая граница для всех элементов
+    # Белые границы всех элементов
     for patch in box['boxes']:
         patch.set_edgecolor("white")
         patch.set_linewidth(2)
@@ -111,32 +92,31 @@ def plot_boxplot_top_areas(df, year, top_n=10):
         median.set_color("red")
         median.set_linewidth(2)
 
-    ax.set_title(f"Распределение доли женщин-авторов (%Female)\nТоп-{top_n} Areas по медиане, {year}", color="white", fontsize=14)
+    ax.set_title(f"Распределение доли женщин-авторов (%Female)\nТоп-{top_n} Areas по медиане, {year}", fontsize=14)
     ax.set_xticks(range(1, len(labels)+1))
     ax.set_xticklabels(['']*len(labels))  # убираем стандартные подписи
 
     # Пояснения прямо под ящиками
-    y_min = ax.get_ylim()[0] - 5
+    y_min = ax.get_ylim()[0] - 1
     for i, label in enumerate(labels):
-        ax.text(i+1, y_min, label, ha='center', va='top', rotation=25, color='white', fontsize=10)
+        ax.text(i+1, y_min, label, ha='center', va='top', rotation=25, fontsize=10)
 
-    ax.tick_params(axis="y", colors="white")
+    ax.tick_params(axis="y", colors="black")
     for spine in ax.spines.values():
-        spine.set_edgecolor("white")
+        spine.set_edgecolor("black")
         spine.set_linewidth(2)
 
     plt.tight_layout()
-
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.pyplot(fig)
-    with col2:
-        st.markdown("**Дополнительно справа:**")
-        st.markdown("\n".join([f"- {i+1}. {area}" for i, area in enumerate(labels)]))
+    st.pyplot(fig)
     plt.close(fig)
 
+# -------------------------------------------------
+# Boxplot по квартилям
+# -------------------------------------------------
 def plot_boxplot_by_quartile(df, year, area):
     df_area = df[(df["Year"] == year) & (df["Areas"] == area)]
+    # Оставляем только нужные квартали
+    df_area = df_area[df_area["SJR Best Quartile"].isin(["Q1", "Q2", "Q3", "Q4"])]
     quartile_medians = df_area.groupby("SJR Best Quartile")["%Female"].median().sort_values(ascending=False)
     df_area["SJR Best Quartile"] = pd.Categorical(df_area["SJR Best Quartile"], categories=quartile_medians.index, ordered=True)
 
@@ -148,7 +128,6 @@ def plot_boxplot_by_quartile(df, year, area):
         return
 
     fig, ax = plt.subplots(figsize=(8, 4))
-    apply_gradient(ax)
 
     box = ax.boxplot(
         grouped,
@@ -161,7 +140,7 @@ def plot_boxplot_by_quartile(df, year, area):
         manage_ticks=False
     )
 
-    # Белая граница для всех элементов
+    # Белые границы всех элементов
     for patch in box['boxes']:
         patch.set_edgecolor("white")
         patch.set_linewidth(2)
@@ -178,28 +157,22 @@ def plot_boxplot_by_quartile(df, year, area):
         median.set_color("red")
         median.set_linewidth(2)
 
-    ax.set_title(f"%Female по квартилям\n{area}, {year}", color="white", fontsize=14)
+    ax.set_title(f"%Female по квартилям\n{area}, {year}", fontsize=14)
     ax.set_xticks(range(1, len(labels)+1))
     ax.set_xticklabels(['']*len(labels))  # убираем стандартные подписи
 
     # Пояснения прямо под ящиками
-    y_min = ax.get_ylim()[0] - 5
+    y_min = ax.get_ylim()[0] - 1
     for i, label in enumerate(labels):
-        ax.text(i+1, y_min, label, ha='center', va='top', rotation=25, color='white', fontsize=10)
+        ax.text(i+1, y_min, label, ha='center', va='top', rotation=25, fontsize=10)
 
-    ax.tick_params(axis="y", colors="white")
+    ax.tick_params(axis="y", colors="black")
     for spine in ax.spines.values():
-        spine.set_edgecolor("white")
+        spine.set_edgecolor("black")
         spine.set_linewidth(2)
 
     plt.tight_layout()
-
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.pyplot(fig)
-    with col2:
-        st.markdown(f"**Дополнительно справа:**")
-        st.markdown("\n".join([f"- {i+1}. {quartile}" for i, quartile in enumerate(labels)]))
+    st.pyplot(fig)
     plt.close(fig)
 
 # -------------------------------------------------
