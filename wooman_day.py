@@ -43,22 +43,11 @@ def load_data(base_dir: Path):
 
     df = pd.concat(dfs, ignore_index=True)
 
-    # %Female → float
-    df["%Female"] = (
-        df["%Female"]
-        .astype(str)
-        .str.replace(",", ".", regex=False)
-        .astype(float)
-    )
-
-    # Areas → explode
+    df["%Female"] = df["%Female"].astype(str).str.replace(",", ".").astype(float)
     df["Areas"] = df["Areas"].str.split(";")
     df = df.explode("Areas")
     df["Areas"] = df["Areas"].str.strip()
-
-    # Чистка
     df = df.dropna(subset=["%Female", "Areas", "Year"])
-
     return df
 
 # -------------------------------------------------
@@ -68,7 +57,6 @@ def wrap_label(label, width=25):
     return textwrap.fill(label, width=width)
 
 def apply_gradient(ax, start_color="#a8cfff", end_color="#08306b"):
-    """Применяет горизонтальный градиент на фон осей matplotlib"""
     ax.set_facecolor("none")
     gradient = np.linspace(0, 1, 256).reshape(1, -1)
     gradient = np.vstack((gradient, gradient))
@@ -83,13 +71,7 @@ def apply_gradient(ax, start_color="#a8cfff", end_color="#08306b"):
 
 def plot_boxplot_top_areas(df, year, top_n=10):
     df_year = df[df["Year"] == year]
-    top_areas = (
-        df_year.groupby("Areas")["%Female"]
-        .median()
-        .sort_values(ascending=False)
-        .head(top_n)
-    )
-    # Сортировка по медиане
+    top_areas = df_year.groupby("Areas")["%Female"].median().sort_values(ascending=False).head(top_n)
     df_top = df_year[df_year["Areas"].isin(top_areas.index)]
     df_top["Areas"] = pd.Categorical(df_top["Areas"], categories=top_areas.index, ordered=True)
 
@@ -107,26 +89,21 @@ def plot_boxplot_top_areas(df, year, top_n=10):
         grouped,
         labels=labels,
         patch_artist=True,
-        boxprops=dict(facecolor="lightblue", color=box_color),
-        whiskerprops=dict(color=box_color),
-        capprops=dict(color=box_color),
-        medianprops=dict(color="red"),
-        flierprops=dict(
-            marker="o",
-            markerfacecolor=box_color,
-            markeredgecolor=box_color,
-            markersize=4,
-            alpha=0.7,
-        ),
+        boxprops=dict(facecolor="lightblue", color=box_color, linewidth=2),
+        whiskerprops=dict(color=box_color, linewidth=2),
+        capprops=dict(color=box_color, linewidth=2),
+        medianprops=dict(color="red", linewidth=2),
+        flierprops=dict(marker="o", markerfacecolor=box_color, markeredgecolor=box_color, markersize=4, alpha=0.7),
+        manage_ticks=False
     )
 
-    ax.set_title(
-        f"Распределение доли женщин-авторов (%Female)\n"
-        f"Топ-{top_n} Areas по медиане, {year}",
-        color="white",
-        fontsize=15,
-    )
-    ax.tick_params(axis="x", colors="white", rotation=22)
+    # Белая обводка для ящиков и усиков
+    for patch in ax.artists:
+        patch.set_edgecolor("white")
+        patch.set_linewidth(1.5)
+
+    ax.set_title(f"Распределение доли женщин-авторов (%Female)\nТоп-{top_n} Areas по медиане, {year}", color="white", fontsize=15)
+    ax.set_xticklabels(labels, rotation=25, color="white", fontsize=10)
     ax.tick_params(axis="y", colors="white")
     for spine in ax.spines.values():
         spine.set_color("white")
@@ -137,17 +114,16 @@ def plot_boxplot_top_areas(df, year, top_n=10):
         st.pyplot(fig)
     with col2:
         st.markdown("""
-        **Пояснения к Areas:**
-        - Ящики показывают диапазон 25%-75% (%Female).  
-        - Красная линия – медиана.  
-        - Кружки – выбросы.  
-        - Areas отсортированы по медианной доле женщин (слева – больше, справа – меньше).
+        **Пояснения к Areas:**  
+        - Ящики: 25%-75% доля женщин-авторов.  
+        - Красная линия: медиана.  
+        - Кружки: выбросы.  
+        - Areas отсортированы по медиане слева направо (слева – больше, справа – меньше).
         """)
     plt.close(fig)
 
 def plot_boxplot_by_quartile(df, year, area):
     df_area = df[(df["Year"] == year) & (df["Areas"] == area)]
-    # Сортировка квартилей по медиане
     quartile_medians = df_area.groupby("SJR Best Quartile")["%Female"].median().sort_values(ascending=False)
     df_area["SJR Best Quartile"] = pd.Categorical(df_area["SJR Best Quartile"], categories=quartile_medians.index, ordered=True)
 
@@ -169,21 +145,21 @@ def plot_boxplot_by_quartile(df, year, area):
         grouped,
         labels=labels,
         patch_artist=True,
-        boxprops=dict(facecolor="lightblue", color=box_color),
-        whiskerprops=dict(color=box_color),
-        capprops=dict(color=box_color),
-        medianprops=dict(color="red"),
-        flierprops=dict(
-            marker="o",
-            markerfacecolor=box_color,
-            markeredgecolor=box_color,
-            markersize=4,
-            alpha=0.7,
-        ),
+        boxprops=dict(facecolor="lightblue", color=box_color, linewidth=2),
+        whiskerprops=dict(color=box_color, linewidth=2),
+        capprops=dict(color=box_color, linewidth=2),
+        medianprops=dict(color="red", linewidth=2),
+        flierprops=dict(marker="o", markerfacecolor=box_color, markeredgecolor=box_color, markersize=4, alpha=0.7),
+        manage_ticks=False
     )
 
+    for patch in ax.artists:
+        patch.set_edgecolor("white")
+        patch.set_linewidth(1.5)
+
     ax.set_title(f"%Female по квартилям\n{area}, {year}", color="white")
-    ax.tick_params(colors="white")
+    ax.set_xticklabels(labels, rotation=25, color="white", fontsize=10)
+    ax.tick_params(axis="y", colors="white")
     for spine in ax.spines.values():
         spine.set_color("white")
     plt.tight_layout()
@@ -193,10 +169,10 @@ def plot_boxplot_by_quartile(df, year, area):
         st.pyplot(fig)
     with col2:
         st.markdown("""
-        **Пояснения по квартилям:**
-        - Ящики показывают диапазон 25%-75% доли женщин-авторов.  
-        - Красная линия – медиана.  
-        - Кружки – выбросы.  
+        **Пояснения по квартилям:**  
+        - Ящики: 25%-75% доля женщин-авторов.  
+        - Красная линия: медиана.  
+        - Кружки: выбросы.  
         - Квартали отсортированы по медиане слева направо (слева – больше, справа – меньше).
         """)
     plt.close(fig)
@@ -216,10 +192,7 @@ def main():
     plot_boxplot_top_areas(df, year)
 
     areas_available = sorted(df[df["Year"] == year]["Areas"].unique())
-    selected_area = st.selectbox(
-        "Выберите Area для детальной разбивки по квартилям",
-        areas_available,
-    )
+    selected_area = st.selectbox("Выберите Area для детальной разбивки по квартилям", areas_available)
 
     st.subheader(f"Детализация по квартилям: {selected_area}")
     plot_boxplot_by_quartile(df, year, selected_area)
