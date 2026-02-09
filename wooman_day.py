@@ -64,10 +64,10 @@ def plot_boxplot_top_areas(df, year, top_n=10):
 
     fig, ax = plt.subplots(figsize=(10, 5))
 
-    box = ax.boxplot(
+    ax.boxplot(
         grouped,
         patch_artist=True,
-        showfliers=True,  # показываем все выбросы
+        showfliers=True,
         boxprops=dict(facecolor="lightblue", color="black", linewidth=1.5),
         whiskerprops=dict(color="black", linewidth=1.5),
         capprops=dict(color="black", linewidth=1.5),
@@ -77,12 +77,12 @@ def plot_boxplot_top_areas(df, year, top_n=10):
     )
 
     ax.set_xticks(range(1, len(labels)+1))
-    ax.set_xticklabels(['']*len(labels))  # подписи будем через текст
+    ax.set_xticklabels(['']*len(labels))
 
     # Пояснения под ящиками с переносом строк
     y_min = ax.get_ylim()[0] - 1
     for i, label in enumerate(labels):
-        wrapped_label = textwrap.fill(label, width=20)  # перенос после 20 символов
+        wrapped_label = textwrap.fill(label, width=20)
         ax.text(i+1, y_min, wrapped_label, ha='center', va='top', rotation=25, fontsize=10)
 
     ax.set_title(f"Распределение доли женщин-авторов (%Female)\nТоп-{top_n} Areas, {year}", fontsize=14)
@@ -126,7 +126,7 @@ def plot_boxplot_by_quartile(df, year, area):
 
     fig, ax = plt.subplots(figsize=(8, 4))
 
-    box = ax.boxplot(
+    ax.boxplot(
         grouped,
         patch_artist=True,
         showfliers=True,
@@ -177,7 +177,10 @@ def main():
     base_dir = Path(__file__).resolve().parent
     df = load_data(base_dir)
 
-    year = st.selectbox("Выберите год", sorted(df["Year"].unique()))
+    # Сортировка годов: 2024 → 2022, по умолчанию 2022
+    years_sorted = sorted(df["Year"].unique(), reverse=True)
+    default_year_index = list(years_sorted).index(2022)
+    year = st.selectbox("Выберите год", years_sorted, index=default_year_index)
 
     st.subheader("Топ Areas по медиане доли женщин")
     plot_boxplot_top_areas(df, year)
