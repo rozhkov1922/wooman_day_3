@@ -31,8 +31,6 @@ def load_data(base_dir: Path):
         path = base_dir / filename
         if not path.exists():
             st.error(f"Файл не найден: {filename}")
-            st.write("Файлы в директории приложения:")
-            st.write([p.name for p in base_dir.iterdir()])
             st.stop()
 
         df = pd.read_csv(path, sep=";")
@@ -40,153 +38,200 @@ def load_data(base_dir: Path):
         dfs.append(df)
 
     df = pd.concat(dfs, ignore_index=True)
-    df["%Female"] = df["%Female"].astype(str).str.replace(",", ".").astype(float)
+
+    df["%Female"] = (
+        df["%Female"]
+        .astype(str)
+        .str.replace(",", ".")
+        .astype(float)
+    )
+
     df["Areas"] = df["Areas"].str.split(";")
     df = df.explode("Areas")
     df["Areas"] = df["Areas"].str.strip()
+
     df = df.dropna(subset=["%Female", "Areas", "Year"])
     return df
 
-def wrap_label(label, width=25):
-    return textwrap.fill(label, width=width)
 
 # -------------------------------------------------
-# Boxplot по топ Areas
+# Boxplot по Areas (топ 10)
 # -------------------------------------------------
 def plot_boxplot_top_areas(df, year, top_n=10, ascending=False):
     df_year = df[df["Year"] == year]
-    areas_sorted = df_year.groupby("Areas")["%Female"].median().sort_values(ascending=ascending)
-    top_areas = areas_sorted.head(top_n)
-    df_top = df_year[df_year["Areas"].isin(top_areas.index)]
-    df_top["Areas"] = pd.Categorical(df_top["Areas"], categories=top_areas.index, ordered=True)
 
-    grouped = [group["%Female"].values for _, group in df_top.groupby("Areas")]
-    labels = list(top_areas.index)
+    areas_sorted = (
+        df_year
+        .groupby("Areas")["%Female"]
+        .median()
+        .sort_values(ascending=ascending)
+        .head(top_n)
+    )
+
+    df_top = df_year[df_year["Areas"].isin(areas_sorted.index)]
+    df_top["Areas"] = pd.Categorical(
+        df_top["Areas"],
+        categories=areas_sorted.index,
+        ordered=True
+    )
+
+    grouped = [g["%Female"].values for _, g in df_top.groupby("Areas")]
+    labels = list(areas_sorted.index)
 
     fig, ax = plt.subplots(figsize=(10, 5))
+
     ax.boxplot(
         grouped,
-        patch_artist=True,
         showfliers=True,
-        boxprops=dict(facecolor="lightblue", color="black", linewidth=1.5),
+        patch_artist=True,
+        boxprops=dict(facecolor="lightblue", edgecolor="black", linewidth=1.5),
         whiskerprops=dict(color="black", linewidth=1.5),
         capprops=dict(color="black", linewidth=1.5),
         medianprops=dict(color="red", linewidth=2),
-        flierprops=dict(marker="o", markerfacecolor="white", markeredgecolor="black", markersize=5, alpha=1.0),
-        manage_ticks=False
+        flierprops=dict(
+            marker="o",
+            markerfacecolor="white",
+            markeredgecolor="black",
+            markersize=5
+        )
     )
 
-    ax.set_xticks(range(1, len(labels)+1))
-    ax.set_xticklabels(['']*len(labels))
+    ax.set_xticks(range(1, len(labels) + 1))
+    ax.set_xticklabels([""] * len(labels))
+
     y_min = ax.get_ylim()[0] - 1
     for i, label in enumerate(labels):
-        wrapped_label = textwrap.fill(label, width=20)
-        ax.text(i+1, y_min, wrapped_label, ha='center', va='top', rotation=25, fontsize=10)
+        ax.text(
+            i + 1,
+            y_min,
+            textwrap.fill(label, 20),
+            ha="center",
+            va="top",
+            rotation=25,
+            fontsize=10
+        )
 
-    ax.set_title(f"Распределение доли женщин-авторов (%Female)\nТоп-{top_n} Areas, {year}", fontsize=14)
-    ax.tick_params(axis="y", colors="black")
+    ax.set_title(f"Топ-10 Areas по медиане %Female, {year}", fontsize=14)
+
     for spine in ax.spines.values():
         spine.set_edgecolor("black")
         spine.set_linewidth(1.5)
 
     plt.tight_layout()
+
     col1, col2 = st.columns([3, 1])
     with col1:
         st.pyplot(fig)
     with col2:
-        st.markdown("**Описание графика:**")
-        st.markdown(textwrap.fill(
-            f"График показывает распределение доли женщин-авторов (%Female) "
-            f"по топ-{top_n} научным областям (Areas) за {year}. "
-            "Красная линия — медиана, кружки — выбросы.",
-            width=40
-        ))
+        st.markdown(
+            "График показывает распределение доли женщин-авторов "
+            "по 10 научным областям. "
+            "Красная линия — медиана, точки — выбросы."
+        )
+
     plt.close(fig)
 
-# -------------------------------------------------
-# Boxplot по квартилям
-# -------------------------------------------------
-def plot_boxplot_by_quartile(df, year, area, ascending=False):
-    df_area = df[(df["Year"] == year) & (df["Areas"] == area)]
-    df_area = df_area[df_area["SJR Best Quartile"].isin(["Q1", "Q2", "Q3", "Q4"])]
-    quartile_sorted = df_area.groupby("SJR Best Quartile")["%Female"].median().sort_values(ascending=ascending)
-    df_area["SJR Best Quartile"] = pd.Categorical(df_area["SJR Best Quartile"], categories=quartile_sorted.index, ordered=True)
 
-    grouped = [group["%Female"].values for _, group in df_area.groupby("SJR Best Quartile")]
-    labels = list(quartile_sorted.index)
+# -------------------------------------------------
+# Boxplot по квартилям (ЖЁСТКИЙ ПОРЯДОК Q4 → Q1)
+# -------------------------------------------------
+def plot_boxplot_by_quartile(df, year, area):
+    df_area = df[
+        (df["Year"] == year) &
+        (df["Areas"] == area) &
+        (df["SJR Best Quartile"].isin(["Q1", "Q2", "Q3", "Q4"]))
+    ]
+
+    quartile_order = ["Q4", "Q3", "Q2", "Q1"]
+
+    df_area["SJR Best Quartile"] = pd.Categorical(
+        df_area["SJR Best Quartile"],
+        categories=quartile_order,
+        ordered=True
+    )
+
+    grouped = [
+        df_area[df_area["SJR Best Quartile"] == q]["%Female"].values
+        for q in quartile_order
+        if q in df_area["SJR Best Quartile"].values
+    ]
+
+    labels = [
+        q for q in quartile_order
+        if q in df_area["SJR Best Quartile"].values
+    ]
 
     if not grouped:
-        st.info("Нет данных для выбранного Area и года.")
+        st.info("Нет данных для выбранной области.")
         return
 
     fig, ax = plt.subplots(figsize=(8, 4))
+
     ax.boxplot(
         grouped,
-        patch_artist=True,
         showfliers=True,
-        boxprops=dict(facecolor="lightblue", color="black", linewidth=1.5),
+        patch_artist=True,
+        boxprops=dict(facecolor="lightblue", edgecolor="black", linewidth=1.5),
         whiskerprops=dict(color="black", linewidth=1.5),
         capprops=dict(color="black", linewidth=1.5),
         medianprops=dict(color="red", linewidth=2),
-        flierprops=dict(marker="o", markerfacecolor="white", markeredgecolor="black", markersize=5, alpha=1.0),
-        manage_ticks=False
+        flierprops=dict(
+            marker="o",
+            markerfacecolor="white",
+            markeredgecolor="black",
+            markersize=5
+        )
     )
 
-    ax.set_xticks(range(1, len(labels)+1))
-    ax.set_xticklabels(['']*len(labels))
-    y_min = ax.get_ylim()[0] - 1
-    for i, label in enumerate(labels):
-        wrapped_label = textwrap.fill(label, width=20)
-        ax.text(i+1, y_min, wrapped_label, ha='center', va='top', rotation=25, fontsize=10)
+    ax.set_xticks(range(1, len(labels) + 1))
+    ax.set_xticklabels(labels)
 
-    ax.set_title(f"%Female по квартилям\n{area}, {year}", fontsize=14)
-    ax.tick_params(axis="y", colors="black")
+    ax.set_title(f"%Female по квартилям (Q4 → Q1)\n{area}, {year}", fontsize=14)
+
     for spine in ax.spines.values():
         spine.set_edgecolor("black")
         spine.set_linewidth(1.5)
 
     plt.tight_layout()
+
     col1, col2 = st.columns([3, 1])
     with col1:
         st.pyplot(fig)
     with col2:
-        st.markdown("**Описание графика:**")
-        st.markdown(textwrap.fill(
-            f"График показывает распределение доли женщин-авторов (%Female) "
-            f"по квартилям журналов (Q1-Q4) для области {area} за {year}. "
-            "Красная линия — медиана, кружки — выбросы.",
-            width=40
-        ))
+        st.markdown(
+            "График показывает распределение доли женщин-авторов "
+            "по квартилям журналов. "
+            "Квартиля отсортированы строго по уровню: Q4 → Q1."
+        )
+
     plt.close(fig)
+
 
 # -------------------------------------------------
 # Основное приложение
 # -------------------------------------------------
 def main():
-    st.title("Анализ доли женщин-авторов по областям исследований")
+    st.title("Анализ доли женщин-авторов")
 
     base_dir = Path(__file__).resolve().parent
     df = load_data(base_dir)
 
-    # Сортировка годов: 2024 → 2022
     years_sorted = sorted(df["Year"].unique(), reverse=True)
-    year = st.selectbox("Выберите год", years_sorted, index=0)
+    year = st.selectbox("Год", years_sorted, index=0)
 
-    # Новый выпадающий список: сортировка топ 10
-    order = st.selectbox("Сортировка топ 10", ["По убыванию медианы", "По возрастанию медианы"])
+    order = st.selectbox(
+        "Сортировка топ-10 Areas",
+        ["По убыванию медианы", "По возрастанию медианы"]
+    )
+    ascending = order == "По возрастанию медианы"
 
-    ascending = True if order == "По возрастанию медианы" else False
+    plot_boxplot_top_areas(df, year, ascending=ascending)
 
-    st.subheader("Топ Areas по медиане доли женщин")
-    plot_boxplot_top_areas(df, year, top_n=10, ascending=ascending)
+    areas = sorted(df[df["Year"] == year]["Areas"].unique())
+    area = st.selectbox("Область (Area)", areas)
 
-    areas_available = sorted(df[df["Year"] == year]["Areas"].unique())
-    selected_area = st.selectbox("Выберите Area для детальной разбивки по квартилям", areas_available)
-
-    st.subheader(f"Детализация по квартилям: {selected_area}")
-    plot_boxplot_by_quartile(df, year, selected_area, ascending=ascending)
+    plot_boxplot_by_quartile(df, year, area)
 
 
 if __name__ == "__main__":
     main()
-
