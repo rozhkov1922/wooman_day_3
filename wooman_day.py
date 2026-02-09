@@ -179,7 +179,7 @@ def main():
 
     # Сортировка годов: 2024 → 2022, по умолчанию 2022
     years_sorted = sorted(df["Year"].unique(), reverse=True)
-    default_year_index = list(years_sorted).index(2022)
+    default_year_index = 0
     year = st.selectbox("Выберите год", years_sorted, index=default_year_index)
 
     st.subheader("Топ Areas по медиане доли женщин")
